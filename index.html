@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>トキメキ禁煙メモリアル v10.2</title>
+    <meta name="theme-color" content="#fff1f2">
+    
+    <!-- エラーハンドリング -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            var loader = document.getElementById('app-loader');
+            if (loader) {
+                loader.innerHTML = '<div style="color:red; padding:20px; text-align:center;">' +
+                    '<h3>システムエラー</h3>' +
+                    '<p>' + message + '</p>' +
+                    '<button onclick="location.reload()" style="margin-top:10px; padding:10px; border:1px solid red; background:#fff;">リロード</button>' +
+                    '</div>';
+            }
+        };
+    </script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        rose: { 50: '#fff1f2', 100: '#ffe4e6', 200: '#fecdd3', 500: '#f43f5e', 600: '#e11d48' },
+                        slate: { 800: '#1e293b', 900: '#0f172a' }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-6px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- React & ReactDOM (ネイティブ動作のためBabelは削除) -->
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: #fff1f2;
+            color: #334155;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none;
+            height: 100%;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes heartBeat { 0% { transform: scale(1); } 14% { transform: scale(1.3); } 28% { transform: scale(1); } 42% { transform: scale(1.3); } 70% { transform: scale(1); } }
+        .animate-heartbeat { animation: heartBeat 1.5s infinite; }
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .animate-pop { animation: popIn 0.3s ease-out forwards; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body>
+    <!-- ローディング -->
+    <div id="app-loader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#fff1f2; display:flex; justify-content:center; align-items:center; z-index:9999; flex-direction:column;">
+        <div style="font-size:24px; color:#e11d48; font-weight:bold; margin-bottom:10px;">Loading...</div>
+        <div style="font-size:12px; color:#e11d48;">v10.2 System Ready</div>
+    </div>
+
+    <div id="root" class="h-full"></div>
+
+    <!-- 
+        【重要】
+        type="text/javascript" に変更しました。
+        これによりBabel変換を通さず、ブラウザが直接実行するため、構文エラーが起きなくなります。
+    -->
+    <script type="text/javascript">
+        'use strict';
+
+        // Reactショートカット
+        var h = React.createElement;
+        var useState = React.useState;
+        var useEffect = React.useEffect;
+        var useMemo = React.useMemo;
+
+        var APP_KEY = 'tokikin_v10_2';
+
+        // --- データ定義 ---
+        var SCENARIO_DB = {
+            stage1: {
+                morning: ["おはよう！今日も一日、肺をキレイに保とうね！", "朝一番の深呼吸、気持ちいいでしょ？", "今日も禁煙記録、更新できそうかな？応援してるよ！"],
+                day: ["お疲れ様！ちょっと休憩して、お水でも飲もう？", "午後の眠気覚ましには、タバコよりストレッチが効くよ！", "あなたの努力、ちゃんと数字に出てるよ。すごいなぁ。"],
+                night: ["今日もお疲れ様。タバコなしで一日乗り切ったね！", "吸わずに寝る。それだけで明日の朝の目覚めが変わるよ。", "今日も一日頑張ったね。ゆっくりお風呂に入って休んで。"],
+                lateNight: ["…ん？まだ起きてるの？早く寝ないと肌に悪いよ。", "こんな時間まで頑張り屋さんだね。無理しないでね。"]
+            },
+            stage2: {
+                morning: ["おはよ！…ねえ、朝一番に吸うのはタバコじゃなくて、私との甘い空気でしょ？", "今日も会えて嬉しいな。あなたの健康な笑顔を見るのが日課なの。"],
+                day: ["ねえねえ、浮いたお金で今度デート行かない？なーんて。", "仕事頑張ってるあなたの背中、結構好きかも。", "最近肌ツヤ良くなってない？…ちょっとドキッとしちゃった。"],
+                night: ["おかえりなさい。今日も我慢できて偉い！頭なでなでしてあげる。", "もうタバコなんて必要ないね。だって私がいるもん。"],
+                lateNight: ["ふあぁ…眠い…。でも、あなたと少しでも長く一緒にいたくて。", "夢の中でも応援してるからね。"]
+            },
+            stage3: {
+                morning: ["ん…おはよ。朝からあなたを見れるなんて、私、世界一幸せ者かも。", "一生隣にいてね。綺麗な肺のあなたと、おじいちゃんになるまで一緒にいたい。"],
+                day: ["他のこと考えてたでしょ？ダメ、禁煙中も私のことだけ考えて。", "ねえ、キスしてもいい？…タバコの味がしないあなたなら、いくらでも。", "あなたが側にいるだけで、空気まで美味しく感じるの。"],
+                night: ["ずっと一緒にいてくれてありがとう。あなたが健康でいてくれるだけで、私は生きていける。", "世界中の誰よりも、あなたが大切。…だから、絶対に長生きしてね。"],
+                lateNight: ["…まだ寝ないの？じゃあ、朝まで私のお喋りに付き合ってもらおうかな♪", "あなたが眠るまで、ずっと見ててあげる。…大好きだよ。"]
+            }
+        };
+
+        var HEALTH_BENEFITS = [
+            { h: 0, t: "スタート！", d: "まずは深呼吸！体内の一酸化炭素排出が始まります。" },
+            { h: 24, t: "リスク低下", d: "24時間達成！心臓への負担が減り始めています。" },
+            { h: 72, t: "ニコチン消失", d: "体内からニコチンが完全に抜けました！踏ん張りどころ！" },
+            { h: 168, t: "睡眠改善", d: "1週間達成！睡眠の質が良くなり、目覚めがスッキリします。" },
+            { h: 720, t: "美肌効果", d: "1ヶ月達成！血液循環が良くなり、肌のトーンが明るくなります。" },
+            { h: 8760, t: "健康体", d: "1年達成！心臓疾患のリスクが喫煙者の半分になりました！" }
+        ];
+
+        var GIFTS = [
+            { id: 1, name: 'スイーツ', cost: 500, love: 50, icon: '🍰' },
+            { id: 2, name: '新作コスメ', cost: 3000, love: 350, icon: '💄' },
+            { id: 3, name: '温泉旅行', cost: 15000, love: 2000, icon: '♨️' },
+            { id: 4, name: '愛の誓い', cost: 100000, love: 9999, icon: '💍' }
+        ];
+
+        var SOS_MESSAGES = [
+            "ダメ！ここで吸ったら、私のこの笑顔も見納めだよ？",
+            "私のために、その一本を我慢して？…お願い。",
+            "深呼吸して。私が手、握っててあげるから。",
+            "あなたが健康を害するのが、私にとって一番の痛みなんだよ。",
+            "ねえ、私よりタバコの方が大切なの…？"
+        ];
+
+        var OMIKUJI_DATA = [
+            { id: 1, type: '大吉', love: 100, msg: '今日は最高の禁煙日和！' },
+            { id: 2, type: '中吉', love: 50, msg: '深呼吸で運気アップ！' },
+            { id: 3, type: '小吉', love: 30, msg: '地道な努力が実を結ぶ日。' }
+        ];
+
+        // --- アイコン (SVG) ---
+        function createIcon(dPath, isFill) {
+            return function(props) {
+                var p = Object.assign({ viewBox: "0 0 24 24", className: "w-6 h-6" }, props);
+                if (isFill) {
+                    p.fill = "currentColor";
+                    return h("svg", p, h("path", { d: dPath }));
+                } else {
+                    p.fill = "none";
+                    p.stroke = "currentColor";
+                    p.strokeWidth = "2";
+                    p.strokeLinecap = "round";
+                    p.strokeLinejoin = "round";
+                    return h("svg", p, dPath);
+                }
+            };
+        }
+
+        var Icons = {
+            Heart: createIcon("M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z", true),
+            Alert: createIcon([h("circle", { cx: 12, cy: 12, r: 10 }), h("line", { x1: 12, y1: 8, x2: 12, y2: 12 }), h("line", { x1: 12, y1: 16, x2: 12.01, y2: 16 })], false),
+            Clock: createIcon([h("circle", { cx: 12, cy: 12, r: 10 }), h("polyline", { points: "12 6 12 12 16 14" })], false),
+            Wallet: createIcon([h("path", { d: "M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" }), h("path", { d: "M4 6v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z" })], false),
+            Pig: createIcon([h("path", { d: "M19 5c-1.5 0-2.8.6-3.8 1.5l-2.5 2.5c-.3.3-.7.3-1 0l-2.6-2.6c-.3-.3-.3-.7 0-1L11.6 3c.6-.6 1.5-.6 2.1 0l.4.4" }), h("path", { d: "M2 15c0 3.9 3.1 7 7 7 2.4 0 4.5-1.2 5.8-3l.5.5c.8.8 2.1.8 2.8 0l2.8-2.8c.8-.8.8-2.1 0-2.8l-.5-.5c1.8-1.3 3-3.4 3-5.8 0-2.2-1-4.2-2.6-5.6l-3.3 3.3c-.3.3-.7.3-1 0l-2.6-2.6c-.3-.3-.3-.7 0-1L16.4 2c-1.4-1.6-3.4-2.6-5.6-2.6-3.9 0-7 3.1-7 7v.5C2 7.8 2 8.9 2 10z" }), h("path", { d: "M9 13v.01" }), h("path", { d: "M15 9v.01" })], false),
+            Pulse: createIcon([h("polyline", { points: "22 12 18 12 15 21 9 3 6 12 2 12" })], false),
+            Gift: createIcon([h("polyline", { points: "20 12 20 22 4 22 4 12" }), h("rect", { x: 2, y: 7, width: 20, height: 5 }), h("line", { x1: 12, y1: 22, x2: 12, y2: 7 }), h("path", { d: "M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" }), h("path", { d: "M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" })], false),
+            Image: createIcon([h("rect", { x: 3, y: 3, width: 18, height: 18, rx: 2, ry: 2 }), h("circle", { cx: 8.5, cy: 8.5, r: 1.5 }), h("polyline", { points: "21 15 16 10 5 21" })], false),
+            Trash: createIcon([h("polyline", { points: "3 6 5 6 21 6" }), h("path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" })], false),
+        };
+
+        // --- ユーティリティ ---
+        var Storage = {
+            get: function(key, def) {
+                try {
+                    var v = localStorage.getItem(APP_KEY + '_' + key);
+                    return v ? JSON.parse(v) : def;
+                } catch(e) { return def; }
+            },
+            set: function(key, val) {
+                try {
+                    localStorage.setItem(APP_KEY + '_' + key, JSON.stringify(val));
+                    return true;
+                } catch(e) {
+                    if (e.name === 'QuotaExceededError') {
+                        alert("データ容量がいっぱいです。");
+                    }
+                    return false;
+                }
+            },
+            clear: function() {
+                try {
+                    Object.keys(localStorage).forEach(function(k) {
+                        if(k.indexOf(APP_KEY) === 0) localStorage.removeItem(k);
+                    });
+                } catch(e) {}
+            }
+        };
+
+        var resizeImage = function(file) {
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = new Image();
+                    img.onload = function() {
+                        try {
+                            var canvas = document.createElement('canvas');
+                            var w = img.width; var h = img.height;
+                            var max = 600; 
+                            if(w > h) { if(w > max) { h *= max/w; w=max; } } else { if(h > max) { w *= max/h; h=max; } }
+                            canvas.width = w; canvas.height = h;
+                            var ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, w, h);
+                            resolve(canvas.toDataURL('image/jpeg', 0.8));
+                        } catch(err) { reject(err); }
+                    };
+                    img.onerror = function() { reject(new Error("Image Load Error")); };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function() { reject(new Error("File Read Error")); };
+                reader.readAsDataURL(file);
+            });
+        };
+
+        // --- メインアプリ ---
+        function App() {
+            var gameStateVal = useState('loading');
+            var gameState = gameStateVal[0], setGameState = gameStateVal[1];
+
+            var profileVal = useState(null);
+            var profile = profileVal[0], setProfile = profileVal[1];
+
+            var heroinesVal = useState([]);
+            var heroines = heroinesVal[0], setHeroines = heroinesVal[1];
+            
+            var timerVal = useState({ d:0, h:0, m:0, s:0, wallet:0, totalSaved:0, totalHours: 0 });
+            var timerData = timerVal[0], setTimerData = timerVal[1];
+
+            var sosVal = useState(false);
+            var isSosMode = sosVal[0], setIsSosMode = sosVal[1];
+
+            var sosMsgVal = useState("");
+            var sosMessage = sosMsgVal[0], setSosMessage = sosMsgVal[1];
+
+            var resetVal = useState(false);
+            var showResetConfirm = resetVal[0], setShowResetConfirm = resetVal[1];
+
+            var bonusVal = useState(null);
+            var loginBonus = bonusVal[0], setLoginBonus = bonusVal[1];
+
+            var giftVal = useState(null);
+            var giftEvent = giftVal[0], setGiftEvent = giftVal[1];
+
+            var tapVal = useState(false);
+            var tapAnim = tapVal[0], setTapAnim = tapVal[1];
+
+            var prevVal = useState({ normal: null, happy: null, sad: null });
+            var previewImages = prevVal[0], setPreviewImages = prevVal[1];
+
+            var dialVal = useState("");
+            var dialogue = dialVal[0], setDialogue = dialVal[1];
+
+            // 初期化
+            useEffect(function() {
+                var loader = document.getElementById('app-loader');
+                if (loader) loader.style.display = 'none';
+
+                var p = Storage.get('profile', null);
+                var hData = Storage.get('heroines', []);
+                if (p && p.startQuitDate) {
+                    setProfile(p);
+                    setHeroines(hData);
+                    setGameState('main');
+                } else {
+                    setProfile({ 
+                        dailyTarget: 20, 
+                        pricePerPack: 600, 
+                        accumulatedMoney: 0, 
+                        love: 0, 
+                        goalName: '自分へのご褒美', 
+                        goalCost: 10000, 
+                        lastLoginDate: null 
+                    });
+                    setGameState('setup');
+                }
+            }, []);
+
+            function getScenario(love) {
+                love = love || 0;
+                var h = new Date().getHours();
+                var timeKey = (h >= 5 && h < 11) ? 'morning' : (h >= 11 && h < 18) ? 'day' : (h >= 23 || h < 4) ? 'lateNight' : 'night';
+                var stage = love >= 2000 ? 'stage3' : love >= 500 ? 'stage2' : 'stage1';
+                var list = SCENARIO_DB[stage][timeKey];
+                return list[Math.floor(Math.random() * list.length)];
+            }
+
+            useEffect(function() {
+                if (gameState === 'main' && profile) {
+                    setDialogue(getScenario(profile.love));
+                }
+            }, [gameState]);
+
+            useEffect(function() {
+                if(!profile || !profile.startQuitDate) return;
+                
+                var todayStr = new Date().toDateString();
+                if (profile.lastLoginDate !== todayStr && gameState === 'main') {
+                    var omikuji = OMIKUJI_DATA[Math.floor(Math.random() * OMIKUJI_DATA.length)];
+                    var nextLove = (profile.love || 0) + omikuji.love;
+                    var updatedProfile = Object.assign({}, profile, { love: nextLove, lastLoginDate: todayStr });
+                    setProfile(updatedProfile);
+                    Storage.set('profile', updatedProfile);
+                    setTimeout(function() { setLoginBonus(omikuji); }, 1500);
+                }
+
+                var tick = function() {
+                    var now = new Date();
+                    var start = new Date(profile.startQuitDate);
+                    var diffMs = now - start;
+                    if(diffMs < 0) return;
+
+                    var d = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    var h = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+                    var m = Math.floor((diffMs / (1000 * 60)) % 60);
+                    var s = Math.floor((diffMs / 1000) % 60);
+                    var totalHours = diffMs / (1000 * 60 * 60);
+                    
+                    var totalDaysFloat = diffMs / (1000 * 60 * 60 * 24);
+                    var totalSaved = Math.floor(totalDaysFloat * (profile.dailyTarget || 0) * ((profile.pricePerPack || 600) / 20));
+                    // Wallet = Cumulative Saved + (Accumulated negative balance from gifts)
+                    var wallet = (profile.accumulatedMoney || 0) + totalSaved;
+
+                    setTimerData({ d: d, h: h, m: m, s: s, wallet: wallet, totalSaved: totalSaved, totalHours: totalHours });
+                };
+                tick();
+                var interval = setInterval(tick, 1000);
+                return function() { clearInterval(interval); };
+            }, [profile, gameState]);
+
+            useEffect(function() {
+                if (isSosMode) {
+                    var updateMsg = function() { setSosMessage(SOS_MESSAGES[Math.floor(Math.random() * SOS_MESSAGES.length)]); };
+                    updateMsg();
+                    var interval = setInterval(updateMsg, 6000);
+                    return function() { clearInterval(interval); };
+                }
+            }, [isSosMode]);
+
+            var heroImages = useMemo(function() {
+                var active = null;
+                if (profile && profile.currentHeroineId) {
+                    active = heroines.find(function(h) { return h.id === profile.currentHeroineId; });
+                }
+                active = active || heroines[0];
+
+                if (!active) return { normal: null, happy: null, sad: null };
+                return {
+                    normal: active.img || null,
+                    happy: active.imgHappy || active.img || null,
+                    sad: active.imgSad || active.img || null
+                };
+            }, [heroines, profile]);
+
+            var handleImageSelect = function(e, type) {
+                if (e.target.files && e.target.files[0]) {
+                    resizeImage(e.target.files[0]).then(function(base64) {
+                        setPreviewImages(function(prev) {
+                            var next = Object.assign({}, prev);
+                            next[type] = base64;
+                            return next;
+                        });
+                    }).catch(function() { alert("読込失敗"); });
+                }
+            };
+
+            var finishSetupOne = function(e) {
+                e.preventDefault();
+                var f = new FormData(e.target);
+                setProfile(Object.assign({}, profile, { 
+                    dailyTarget: parseInt(f.get('c')) || 20, 
+                    pricePerPack: parseInt(f.get('p')) || 600,
+                    goalName: f.get('goalName') || '自分へのご褒美',
+                    goalCost: parseInt(f.get('goalCost')) || 10000
+                }));
+                setGameState('char_reg');
+            };
+
+            var registerHeroine = function() {
+                if (!previewImages.normal) return alert("通常画像は必須です！");
+                
+                var dateStr = new Date().toISOString();
+                var createdHeroine = { 
+                    id: Date.now().toString(), 
+                    img: previewImages.normal, 
+                    imgHappy: previewImages.happy || previewImages.normal,
+                    imgSad: previewImages.sad || previewImages.normal,
+                    createdAt: dateStr 
+                };
+                
+                var nextHeroines = [createdHeroine].concat(heroines);
+                var nextProfile = Object.assign({}, profile);
+                if (!nextProfile.startQuitDate) {
+                    nextProfile.startQuitDate = dateStr;
+                }
+                nextProfile.currentHeroineId = createdHeroine.id;
+
+                if (Storage.set('heroines', nextHeroines) && Storage.set('profile', nextProfile)) {
+                    setHeroines(nextHeroines);
+                    setProfile(nextProfile);
+                
